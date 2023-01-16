@@ -128,8 +128,14 @@ public:
 	InternedString(InternedString&& internedString);
 	void operator=(InternedString&& internedString);
 	~InternedString() = default;
+	inline bool operator==(const InternedString& r) const;
+	inline bool operator!=(const InternedString& r) const;
+	inline bool operator<(const InternedString& r) const;
+	inline bool operator>(const InternedString& r) const;
+	uint16_t Size() const;
 	std::string_view ToStringView() const;
 	std::string ToString() const;
+	inline bool IsNULL() const;
 private:
 	inline static const uint32_t MakeInterned(const std::string_view& string);
 	inline static const HashInfo GetHashInfo(const std::string_view& string);

@@ -8,7 +8,7 @@ std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE> I
 InternedString::StringEntryMemoryManager InternedString::_stringEntryMemoryManager = InternedString::StringEntryMemoryManager();
 
 InternedString::InternedString()
-	: _empty2_isUsed1_StringEntryHandle29(0)
+	: _empty2_isUsed1_StringEntryHandle29(0u)
 {
 }
 
@@ -37,6 +37,32 @@ void InternedString::operator=(InternedString&& internedString)
 	_empty2_isUsed1_StringEntryHandle29 = std::move(internedString._empty2_isUsed1_StringEntryHandle29);
 }
 
+inline bool InternedString::operator==(const InternedString& r) const
+{
+	return _empty2_isUsed1_StringEntryHandle29 == r._empty2_isUsed1_StringEntryHandle29;
+}
+
+inline bool InternedString::operator!=(const InternedString& r) const
+{
+	return _empty2_isUsed1_StringEntryHandle29 != r._empty2_isUsed1_StringEntryHandle29;
+}
+
+inline bool InternedString::operator<(const InternedString& r) const
+{
+	return _empty2_isUsed1_StringEntryHandle29 < r._empty2_isUsed1_StringEntryHandle29;
+}
+
+inline bool InternedString::operator>(const InternedString& r) const
+{
+	return _empty2_isUsed1_StringEntryHandle29 > r._empty2_isUsed1_StringEntryHandle29;
+}
+
+uint16_t InternedString::Size() const
+{
+	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
+	return stringEntry->GetStringEntryHeader().GetSize();
+}
+
 std::string_view InternedString::ToStringView() const
 {
 	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
@@ -47,6 +73,11 @@ std::string InternedString::ToString() const
 {
 	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
 	return std::string(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
+}
+
+inline bool InternedString::IsNULL() const
+{
+	return (_empty2_isUsed1_StringEntryHandle29 & _empty2_isUsed1_StringEntryHandle29) == 0u;
 }
 
 inline const uint32_t InternedString::MakeInterned(const std::string_view& string)
