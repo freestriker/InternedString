@@ -4,6 +4,8 @@
 int main(int argc, char* argv[])
 {
     InternedString::Initialize();
-    InternedString InternedString("55555");
+    InternedString internedString("55555");
+    auto sv = internedString.ToStringView();
+    auto s = internedString.ToString();
     return 0;
 }
