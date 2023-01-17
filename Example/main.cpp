@@ -36,7 +36,7 @@ std::string GetRandomString(uint32_t size)
 
 int main(int argc, char* argv[])
 {
-    std::cout <<std::endl << "The test was performed using " << (MAX_STRING_SIZE - MIN_STRING_SIZE) * PER_SIZE_STRING_COUNT << " randomly generated strings ranging in length from " << MIN_STRING_SIZE << " to " << MAX_STRING_SIZE << "." << std::endl << std::endl;
+    std::cout << "The test was performed using " << (MAX_STRING_SIZE - MIN_STRING_SIZE) * PER_SIZE_STRING_COUNT << " randomly generated strings ranging in length from " << MIN_STRING_SIZE << " to " << MAX_STRING_SIZE << "." << std::endl;
 
     std::cout << "-----std::string-----" << std::endl;
     ///std string
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
                     << std::endl;
             }
 
-            ///Search
+            ///Search once
             {
                 auto start = std::chrono::high_resolution_clock::now();
 
@@ -100,7 +100,27 @@ int main(int argc, char* argv[])
                 std::cout
                     << "Use "
                     << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
-                    << "s to search a std string map."
+                    << "s to search a std string map once."
+                    << std::endl;
+            }
+
+            ///Search 10 times
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    for (const auto& string : stdStringArray)
+                    {
+                        table[string] += 1;
+                    }
+                }
+
+                auto end = std::chrono::high_resolution_clock::now();
+                std::cout
+                    << "Use "
+                    << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                    << "s to search a std string map 10 times."
                     << std::endl;
             }
         }
@@ -127,7 +147,7 @@ int main(int argc, char* argv[])
                     << std::endl;
             }
 
-            ///Search
+            ///Search once
             {
                 auto start = std::chrono::high_resolution_clock::now();
 
@@ -140,7 +160,27 @@ int main(int argc, char* argv[])
                 std::cout
                     << "Use "
                     << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
-                    << "s to search a std string hash map."
+                    << "s to search a std string hash map once."
+                    << std::endl;
+            }
+
+            ///Search 10 times
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    for (const auto& string : stdStringArray)
+                    {
+                        table[string] += 1;
+                    }
+                }
+
+                auto end = std::chrono::high_resolution_clock::now();
+                std::cout
+                    << "Use "
+                    << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                    << "s to search a std string hash map 10 times."
                     << std::endl;
             }
         }
@@ -212,7 +252,27 @@ int main(int argc, char* argv[])
                 std::cout
                     << "Use "
                     << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
-                    << "s to search a interned string map."
+                    << "s to search a interned string map once."
+                    << std::endl;
+            }
+
+            ///Search 10 times
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    for (const auto& string : internedStringArray)
+                    {
+                        table[string] += 1;
+                    }
+                }
+
+                auto end = std::chrono::high_resolution_clock::now();
+                std::cout
+                    << "Use "
+                    << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                    << "s to search a interned string map 10 times."
                     << std::endl;
             }
         }
@@ -252,11 +312,32 @@ int main(int argc, char* argv[])
                 std::cout
                     << "Use "
                     << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
-                    << "s to search a interned string hash map."
+                    << "s to search a interned string hash map once."
+                    << std::endl;
+            }
+
+            ///Search 10 times
+            {
+                auto start = std::chrono::high_resolution_clock::now();
+
+                for (int i = 0; i < 10; i++)
+                {
+                    for (const auto& string : internedStringArray)
+                    {
+                        table[string] += 1;
+                    }
+                }
+
+                auto end = std::chrono::high_resolution_clock::now();
+                std::cout
+                    << "Use "
+                    << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                    << "s to search a interned string hash map 10 times."
                     << std::endl;
             }
         }
     }
+    std::cout << std::endl;
 
     return 0;
 }
