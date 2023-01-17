@@ -1,5 +1,6 @@
 ﻿#pragma once
-#include "InternedString.hpp"
+#include "../InternedString/InternedString.hpp"
+#include <map>
 
 int main(int argc, char* argv[])
 {
@@ -12,5 +13,8 @@ int main(int argc, char* argv[])
     bool less = internedString1 < internedString2;
     auto sv = internedString.ToStringView();
     auto s = internedString.ToString();
+    std::map< InternedString, int> table{};
+    table[internedString] = 0;
+    auto iter = table.find(internedString);
     return 0;
 }

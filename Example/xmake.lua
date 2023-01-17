@@ -1,0 +1,5 @@
+target("Example")
+    set_kind("binary")
+    add_files("main.cpp")
+    add_deps("InternedString")
+    add_deps("InternedString")
