@@ -53,22 +53,27 @@ public:
 		StringEntryHeader stringEntryHeader;
 		char data[MAX_STRING_SIZE];
 	public:
-		inline const StringEntryHeader GetStringEntryHeader() const;
+		inline const StringEntryHeader& GetStringEntryHeader() const;
 		inline void SetStringEntryHeader(const StringEntryHeader& stringEntryHeader);
 		inline const char* GetData() const;
 	};
 	struct HashInfo
 	{
+		static constexpr uint32_t SLOT_POOL_INDEX_BITS = 8u;
+		static constexpr uint32_t SLOT_POOL_INDEX_MASK = (1u << SLOT_POOL_INDEX_BITS) - 1u;
+		static constexpr uint32_t SLOT_HASH_PROBE_BITS = 3u;
+		static constexpr uint32_t SLOT_HASH_PROBE_MASK = ((1u << SLOT_HASH_PROBE_BITS) - 1) << 29u;
+		static constexpr uint32_t STRING_HASH_PROBE_BITS = 6u;
+		static constexpr uint32_t STRING_HASH_PROBE_MASK = ((1u << STRING_HASH_PROBE_BITS) - 1) << 8;
 	private:
 		uint32_t slotIndex32;
-		uint32_t slotHashProbe3_empty29;
-		uint8_t slotPoolIndex8;
+		uint32_t slotHashProbe3_empty21_slotPoolIndex8;
 		StringEntryHeader stringEntryHeader;
 		const char* data;
 	public:
-		inline HashInfo(uint64_t hash, const std::string_view& string);
-		inline const uint32_t GetSlotHashProbeValue() const;
-		inline const StringEntryHeader GetStringEntryHeader() const;
+		inline HashInfo(const std::string_view& string);
+		inline const uint32_t GetSlotHashProbe() const;
+		inline const StringEntryHeader& GetStringEntryHeader() const;
 		inline const char* GetData() const;
 		inline const uint32_t GetSlotIndex() const;
 		inline const uint8_t GetSlotPoolIndex() const;
@@ -80,16 +85,25 @@ private:
 	static constexpr uint32_t MAX_MEMORY_BLOCK_SIZE = (1u << 16u) * 2u;
 	struct Slot
 	{
+		static constexpr uint32_t SLOT_HASH_PROBE_BITS = 3u;
+		static constexpr uint32_t SLOT_HASH_PROBE_MASK = ((1u << SLOT_HASH_PROBE_BITS) - 1) << 29u;
+		static constexpr uint32_t STRING_ENTRY_HANDLE_BITS = 29u;
+		static constexpr uint32_t STRING_ENTRY_HANDLE_MASK = (1u << STRING_ENTRY_HANDLE_BITS) - 1u;
+		static constexpr uint32_t MEMORY_BLOCK_ALIGNED_OFFSET_BITS = 16u;
+		static constexpr uint32_t MEMORY_BLOCK_ALIGNED_OFFSET_MASK = (1u << MEMORY_BLOCK_ALIGNED_OFFSET_BITS) - 1u;
+		static constexpr uint32_t MEMORY_BLOCK_INDEX_BITS = 13u;
+		static constexpr uint32_t MEMORY_BLOCK_INDEX_MASK = (1u << MEMORY_BLOCK_INDEX_BITS) - 1u;
 	private:
 		uint32_t slotHashProbe3_stringEntryHandle29;
 	public:
 		inline const bool IsUsed() const;
 		inline const bool IsTargetSlot(const HashInfo& hashInfo) const;
-		inline const uint32_t GetSlotHashProbeValue() const;
+		inline const uint32_t GetSlotHashProbe() const;
 		inline const StringEntryHandle GetStringEntryHandle() const;
 		inline const uint32_t GetStringEntryHandleValue() const;
 		inline const uint32_t GetSlotValue() const;
 		inline void Load(const uint32_t slotHashProbeValue, const StringEntryHandle& stringEntryHandle);
+		inline void Load(const Slot& srcSlot);
 	};
 	struct SlotPool
 	{
@@ -99,12 +113,14 @@ private:
 		uint32_t size;
 		Slot* slotArray;
 	public:
-		inline Slot* FindTargetOrUnusedSlot(const HashInfo& hashInfo);
-		inline Slot* FindUnusedSlot(const HashInfo& hashInfo);
+		inline Slot& FindUnusedOrTargetSlot(const HashInfo& hashInfo);
+		inline Slot& FindUnusedSlot(const HashInfo& hashInfo);
+		inline void CheckUsageRateAndResize();
 		void Resize();
 	};
 	struct StringEntryMemoryManager
 	{
+		static constexpr uint32_t ALIGN_BYTES = 2u;
 		friend class InternedString;
 	private:
 		uint16_t currentMemoryBlockIndex;
@@ -116,8 +132,8 @@ private:
 	private:
 		inline void CreateNewMemoryBlock();
 	};
-	static std::array<SlotPool, MAX_SLOT_POOL_ARRAY_SIZE> _slotPoolArray;
-	static StringEntryMemoryManager _stringEntryMemoryManager;
+	static std::array<SlotPool, MAX_SLOT_POOL_ARRAY_SIZE> slotPoolArray;
+	static StringEntryMemoryManager stringEntryMemoryManager;
 private:
 	uint32_t _empty2_isUsed1_StringEntryHandle29;
 public:
@@ -138,7 +154,6 @@ public:
 	inline bool IsNULL() const;
 private:
 	inline static const uint32_t MakeInterned(const std::string_view& string);
-	inline static const HashInfo GetHashInfo(const std::string_view& string);
 public:
 	static void Initialize();
 };

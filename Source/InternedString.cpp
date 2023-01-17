@@ -4,8 +4,8 @@
 
 #define Align(size, align) (((size) + (align) - 1) & ~((align) - 1));
 
-std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE> InternedString::_slotPoolArray = std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE>();
-InternedString::StringEntryMemoryManager InternedString::_stringEntryMemoryManager = InternedString::StringEntryMemoryManager();
+std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE> InternedString::slotPoolArray = std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE>();
+InternedString::StringEntryMemoryManager InternedString::stringEntryMemoryManager = InternedString::StringEntryMemoryManager();
 
 InternedString::InternedString()
 	: _empty2_isUsed1_StringEntryHandle29(0u)
@@ -59,19 +59,19 @@ inline bool InternedString::operator>(const InternedString& r) const
 
 uint16_t InternedString::Size() const
 {
-	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
+	const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
 	return stringEntry->GetStringEntryHeader().GetSize();
 }
 
 std::string_view InternedString::ToStringView() const
 {
-	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
+	const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
 	return std::string_view(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
 }
 
 std::string InternedString::ToString() const
 {
-	const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
+	const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
 	return std::string(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
 }
 
@@ -84,30 +84,27 @@ inline const uint32_t InternedString::MakeInterned(const std::string_view& strin
 {
 	if (string.size() > MAX_STRING_SIZE) std::cerr << "Interned string can only hold a string with a length less than 1024." << std::endl;
 
-	const HashInfo&& hashInfo = GetHashInfo(string);
+	const HashInfo hashInfo(string);
 
-	InternedString::Slot* slot = _slotPoolArray[hashInfo.GetSlotPoolIndex()].FindTargetOrUnusedSlot(hashInfo);
+	auto& slotPool = slotPoolArray[hashInfo.GetSlotPoolIndex()];
 
-	if (!slot->IsUsed())
+	slotPool.CheckUsageRateAndResize();
+
+	InternedString::Slot& slot = slotPool.FindUnusedOrTargetSlot(hashInfo);
+
+	if (!slot.IsUsed())
 	{
-		_slotPoolArray[hashInfo.GetSlotPoolIndex()].size++;
-		const StringEntryHandle&& stringEntryHandle = _stringEntryMemoryManager.AllocateStringEntry(hashInfo.GetStringEntryHeader(), hashInfo.GetData());
-		slot->Load(hashInfo.GetSlotHashProbeValue(), stringEntryHandle);
+		slotPoolArray[hashInfo.GetSlotPoolIndex()].size++;
+		const StringEntryHandle&& stringEntryHandle = stringEntryMemoryManager.AllocateStringEntry(hashInfo.GetStringEntryHeader(), hashInfo.GetData());
+		slot.Load(hashInfo.GetSlotHashProbe(), stringEntryHandle);
 	}
 
-	return slot->GetSlotValue() & (IS_USED_MASK | STRING_ENTRY_HANDLE_MASK);
-}
-
-inline const InternedString::HashInfo InternedString::GetHashInfo(const std::string_view& string)
-{
-	uint64_t hash = CityHash64(string.data(), string.size());
-
-	return HashInfo(hash, string);
+	return slot.GetSlotValue() & (IS_USED_MASK | STRING_ENTRY_HANDLE_MASK);
 }
 
 void InternedString::Initialize()
 {
-	for (auto& slotPool : _slotPoolArray)
+	for (auto& slotPool : slotPoolArray)
 	{
 		slotPool.size = 0;
 		slotPool.capcity = SLOT_POOL_INITIALIZE_SIZE;
@@ -115,69 +112,67 @@ void InternedString::Initialize()
 		std::memset(slotPool.slotArray, 0, SLOT_POOL_INITIALIZE_SIZE);
 	}
 
-	_stringEntryMemoryManager.currentMemoryBlockIndex = 0;
-	_stringEntryMemoryManager.currentMemoryBlockAlignedCursor = 0;
-	_stringEntryMemoryManager.memoryBlockArray[0] = reinterpret_cast<char*>(std::malloc(MAX_MEMORY_BLOCK_SIZE));
-	std::memset(_stringEntryMemoryManager.memoryBlockArray[0], 0, MAX_MEMORY_BLOCK_SIZE);
+	stringEntryMemoryManager.currentMemoryBlockIndex = 0;
+	stringEntryMemoryManager.currentMemoryBlockAlignedCursor = 0;
+	stringEntryMemoryManager.memoryBlockArray[0] = reinterpret_cast<char*>(std::malloc(MAX_MEMORY_BLOCK_SIZE));
+	std::memset(stringEntryMemoryManager.memoryBlockArray[0], 0, MAX_MEMORY_BLOCK_SIZE);
 }
 
-inline InternedString::Slot* InternedString::SlotPool::FindTargetOrUnusedSlot(const HashInfo& hashInfo)
+inline InternedString::Slot& InternedString::SlotPool::FindUnusedOrTargetSlot(const HashInfo& hashInfo)
+{
+	const uint32_t SLOT_POOL_CAPCITY_MASK = capcity - 1;
+	for (uint32_t slotIndex = hashInfo.GetSlotIndex() & SLOT_POOL_CAPCITY_MASK; true; slotIndex = (slotIndex + 1) & SLOT_POOL_CAPCITY_MASK)
+	{
+		Slot& slot = slotArray[slotIndex];
+
+		if (!slot.IsUsed() || slot.IsTargetSlot(hashInfo))
+		{
+			return slot;
+		}
+	}
+}
+
+inline InternedString::Slot& InternedString::SlotPool::FindUnusedSlot(const HashInfo& hashInfo)
+{
+	const uint32_t SLOT_POOL_CAPCITY_MASK = capcity - 1;
+	for (uint32_t slotIndex = hashInfo.GetSlotIndex() & SLOT_POOL_CAPCITY_MASK; true; slotIndex = (slotIndex + 1) & SLOT_POOL_CAPCITY_MASK)
+	{
+		Slot& slot = slotArray[slotIndex];
+
+		if (!slot.IsUsed())
+		{
+			return slot;
+		}
+	}
+}
+
+inline void InternedString::SlotPool::CheckUsageRateAndResize()
 {
 	if (size > SLOT_POOL_RESIZE_USAGE_RATE * capcity)
 	{
 		Resize();
 	}
-
-	const uint32_t SLOT_POOL_CAPCITY_MASK = capcity - 1;
-	for (uint32_t slotIndex = hashInfo.GetSlotIndex() & SLOT_POOL_CAPCITY_MASK; true; slotIndex = (slotIndex + 1) & SLOT_POOL_CAPCITY_MASK)
-	{
-		Slot* slot = &(slotArray[slotIndex]);
-
-		if (!slot->IsUsed() || slot->IsTargetSlot(hashInfo))
-		{
-			return slot;
-		}
-	}
-	return nullptr;
-}
-
-inline InternedString::Slot* InternedString::SlotPool::FindUnusedSlot(const HashInfo& hashInfo)
-{
-	const uint32_t SLOT_POOL_CAPCITY_MASK = capcity - 1;
-	for (uint32_t slotIndex = hashInfo.GetSlotIndex() & SLOT_POOL_CAPCITY_MASK; true; slotIndex = (slotIndex + 1) & SLOT_POOL_CAPCITY_MASK)
-	{
-		Slot* slot = &(slotArray[slotIndex]);
-
-		if (!slot->IsUsed())
-		{
-			return slot;
-		}
-	}
-	return nullptr;
 }
 
 void InternedString::SlotPool::Resize()
 {
 	uint32_t oldCapcity = capcity;
-	uint32_t oldSize = size;
 	Slot* oldSlotArray = slotArray;
 
-	capcity = oldSize * 2;
-	size = oldSize;
+	capcity = oldCapcity * 2;
 	slotArray = reinterpret_cast<Slot*>(std::malloc(capcity * sizeof(Slot)));
-	std::memset(slotArray, 0, SLOT_POOL_INITIALIZE_SIZE);
+	std::memset(slotArray, 0, capcity * sizeof(Slot));
 
-	for (uint32_t slotIndex = 0; slotIndex < oldSize; slotIndex++)
+	for (uint32_t slotIndex = 0; slotIndex < size; slotIndex++)
 	{
-		StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(oldSlotArray[slotIndex].GetStringEntryHandle());
-		std::string_view string(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
+		const InternedString::Slot& oldSlot = oldSlotArray[slotIndex];
 
-		const HashInfo&& hashInfo = GetHashInfo(string);
+		StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(oldSlotArray[slotIndex].GetStringEntryHandle());
+		const HashInfo hashInfo(std::string_view(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize()));
 
-		InternedString::Slot* slot = FindUnusedSlot(hashInfo);
+		InternedString::Slot& slot = FindUnusedSlot(hashInfo);
 
-		const StringEntryHandle&& stringEntryHandle = _stringEntryMemoryManager.AllocateStringEntry(hashInfo.GetStringEntryHeader(), hashInfo.GetData());
-		slot->Load(hashInfo.GetSlotHashProbeValue(), stringEntryHandle);
+		slot.Load(oldSlot);
 	}
 
 	std::free(oldSlotArray);
@@ -190,9 +185,9 @@ inline const bool InternedString::Slot::IsUsed() const
 
 inline const bool InternedString::Slot::IsTargetSlot(const HashInfo& hashInfo) const
 {
-	if (GetSlotHashProbeValue() == hashInfo.GetSlotHashProbeValue())
+	if (GetSlotHashProbe() == hashInfo.GetSlotHashProbe())
 	{
-		const StringEntry* stringEntry = _stringEntryMemoryManager.GetStringEntry(GetStringEntryHandle());
+		const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(GetStringEntryHandle());
 		if (stringEntry->GetStringEntryHeader() == hashInfo.GetStringEntryHeader() && 0 == strncmp(stringEntry->GetData(), hashInfo.GetData(), stringEntry->GetStringEntryHeader().GetSize()))
 		{
 			return true;
@@ -201,29 +196,18 @@ inline const bool InternedString::Slot::IsTargetSlot(const HashInfo& hashInfo) c
 	return false;
 }
 
-inline const uint32_t InternedString::Slot::GetSlotHashProbeValue() const
+inline const uint32_t InternedString::Slot::GetSlotHashProbe() const
 {
-	constexpr uint32_t SLOT_HASH_PROBE_BITS = 3u;
-	constexpr uint32_t SLOT_HASH_PROBE_MASK = ((1u << SLOT_HASH_PROBE_BITS) - 1) << 29u;
-
-	return slotHashProbe3_stringEntryHandle29 & SLOT_HASH_PROBE_MASK;
+	return SLOT_HASH_PROBE_MASK & slotHashProbe3_stringEntryHandle29;
 }
 
 inline const InternedString::StringEntryHandle InternedString::Slot::GetStringEntryHandle() const
 {
-	constexpr uint32_t OFFSET_BITS = 16u;
-	constexpr uint32_t OFFSET_MASK = (1u << OFFSET_BITS) - 1u;
-	constexpr uint32_t INDEX_BITS = 13u;
-	constexpr uint32_t INDEX_MASK = (1u << INDEX_BITS) - 1u;
-
-	return StringEntryHandle((slotHashProbe3_stringEntryHandle29 & INDEX_MASK) >> 16u , slotHashProbe3_stringEntryHandle29 & OFFSET_MASK);
+	return StringEntryHandle((slotHashProbe3_stringEntryHandle29 & MEMORY_BLOCK_INDEX_MASK) >> 16u , slotHashProbe3_stringEntryHandle29 & MEMORY_BLOCK_ALIGNED_OFFSET_MASK);
 }
 
 inline const uint32_t InternedString::Slot::GetStringEntryHandleValue() const
 {
-	constexpr uint32_t STRING_ENTRY_HANDLE_BITS = 29u;
-	constexpr uint32_t STRING_ENTRY_HANDLE_MASK = (1u << STRING_ENTRY_HANDLE_BITS) - 1u;
-
 	return slotHashProbe3_stringEntryHandle29 & STRING_ENTRY_HANDLE_BITS;
 }
 
@@ -237,31 +221,29 @@ inline void InternedString::Slot::Load(const uint32_t slotHashProbeValue, const 
 	slotHashProbe3_stringEntryHandle29 = slotHashProbeValue | stringEntryHandle.GetStringEntryHandleValue() | IS_USED_MASK;
 }
 
-inline InternedString::HashInfo::HashInfo(uint64_t hash, const std::string_view& string)
+inline void InternedString::Slot::Load(const Slot& srcSlot)
 {
+	slotHashProbe3_stringEntryHandle29 = srcSlot.slotHashProbe3_stringEntryHandle29;
+}
+
+inline InternedString::HashInfo::HashInfo(const std::string_view& string)
+{
+	uint64_t hash = CityHash64(string.data(), string.size());
 	uint32_t Hi = static_cast<uint32>(hash >> 32);
 	uint32_t Lo = static_cast<uint32>(hash);
 
-	constexpr uint32_t SLOT_POOL_INDEX_BITS = 8u;
-	constexpr uint32_t SLOT_POOL_INDEX_MASK = (1u << SLOT_POOL_INDEX_BITS) - 1u;
-	constexpr uint32_t SLOT_HASH_PROBE_BITS = 3u;
-	constexpr uint32_t SLOT_HASH_PROBE_MASK = ((1u << SLOT_HASH_PROBE_BITS) - 1) << 29u;
-	constexpr uint32_t STRING_HASH_PROBE_BITS = 6u;
-	constexpr uint32_t STRING_HASH_PROBE_MASK = ((1u << STRING_HASH_PROBE_BITS) - 1) << 8u;
-
 	slotIndex32 = Lo;
-	slotHashProbe3_empty29 = Hi & SLOT_HASH_PROBE_MASK;
-	slotPoolIndex8 = Hi & SLOT_POOL_INDEX_MASK;
+	slotHashProbe3_empty21_slotPoolIndex8 = (SLOT_HASH_PROBE_MASK & Hi) | (SLOT_POOL_INDEX_MASK & Hi);
 	stringEntryHeader.SetStringHashProbeAndSize((Hi & STRING_HASH_PROBE_MASK) >> 8u, string.size());
 	data = string.data();
 }
 
-inline const uint32_t InternedString::HashInfo::GetSlotHashProbeValue() const
+inline const uint32_t InternedString::HashInfo::GetSlotHashProbe() const
 {
-	return slotHashProbe3_empty29;
+	return SLOT_HASH_PROBE_MASK & slotHashProbe3_empty21_slotPoolIndex8;
 }
 
-inline const InternedString::StringEntryHeader InternedString::HashInfo::GetStringEntryHeader() const
+inline const InternedString::StringEntryHeader& InternedString::HashInfo::GetStringEntryHeader() const
 {
 	return stringEntryHeader;
 }
@@ -278,7 +260,7 @@ inline const uint32_t InternedString::HashInfo::GetSlotIndex() const
 
 inline const uint8_t InternedString::HashInfo::GetSlotPoolIndex() const
 {
-	return slotPoolIndex8;
+	return SLOT_POOL_INDEX_MASK & slotHashProbe3_empty21_slotPoolIndex8;
 }
 
 inline InternedString::StringEntryHandle::StringEntryHandle(uint32_t stringEntryHandleValue)
@@ -309,12 +291,12 @@ inline const uint32_t InternedString::StringEntryHandle::GetStringEntryHandleVal
 
 inline InternedString::StringEntry* InternedString::StringEntryMemoryManager::GetStringEntry(const StringEntryHandle& stringEntryHandle) const
 {
-	return reinterpret_cast<InternedString::StringEntry*>(memoryBlockArray[stringEntryHandle.GetMemoryBlockIndex()] + stringEntryHandle.GetMemoryBlockAlignedOffset() * 2);
+	return reinterpret_cast<InternedString::StringEntry*>(memoryBlockArray[stringEntryHandle.GetMemoryBlockIndex()] + stringEntryHandle.GetMemoryBlockAlignedOffset() * ALIGN_BYTES);
 }
 
 inline const InternedString::StringEntryHandle InternedString::StringEntryMemoryManager::AllocateStringEntry(const StringEntryHeader& stringEntryHeader, const char* data)
 {
-	const uint32_t size = Align(sizeof(StringEntryHeader) + stringEntryHeader.GetSize(), 2);
+	const uint32_t size = Align(sizeof(StringEntryHeader) + stringEntryHeader.GetSize(), ALIGN_BYTES);
 	const uint32_t alignedSize = size >> 1;
 	if (((static_cast<uint32_t>(currentMemoryBlockAlignedCursor) + alignedSize) << 1) >= MAX_MEMORY_BLOCK_SIZE)
 	{
@@ -333,15 +315,15 @@ inline const InternedString::StringEntryHandle InternedString::StringEntryMemory
 
 inline void InternedString::StringEntryMemoryManager::CreateNewMemoryBlock()
 {
-	if (_stringEntryMemoryManager.currentMemoryBlockIndex >= (MAX_MEMORY_BLOCK_ARRAY_SIZE - 1)) std::cerr << "Interned string only supports a maximum of 1GB memory." << std::endl;
+	if (stringEntryMemoryManager.currentMemoryBlockIndex >= (MAX_MEMORY_BLOCK_ARRAY_SIZE - 1)) std::cerr << "Interned string only supports a maximum of 1GB memory." << std::endl;
 	
-	_stringEntryMemoryManager.currentMemoryBlockIndex += 1;
-	_stringEntryMemoryManager.currentMemoryBlockAlignedCursor = 0;
-	_stringEntryMemoryManager.memoryBlockArray[_stringEntryMemoryManager.currentMemoryBlockIndex] = reinterpret_cast<char*>(std::malloc(MAX_MEMORY_BLOCK_SIZE));
-	std::memset(_stringEntryMemoryManager.memoryBlockArray[_stringEntryMemoryManager.currentMemoryBlockIndex], 0, MAX_MEMORY_BLOCK_SIZE);
+	stringEntryMemoryManager.currentMemoryBlockIndex += 1;
+	stringEntryMemoryManager.currentMemoryBlockAlignedCursor = 0;
+	stringEntryMemoryManager.memoryBlockArray[stringEntryMemoryManager.currentMemoryBlockIndex] = reinterpret_cast<char*>(std::malloc(MAX_MEMORY_BLOCK_SIZE));
+	std::memset(stringEntryMemoryManager.memoryBlockArray[stringEntryMemoryManager.currentMemoryBlockIndex], 0, MAX_MEMORY_BLOCK_SIZE);
 }
 
-inline const InternedString::StringEntryHeader InternedString::StringEntry::GetStringEntryHeader() const
+inline const InternedString::StringEntryHeader& InternedString::StringEntry::GetStringEntryHeader() const
 {
 	return stringEntryHeader;
 }
