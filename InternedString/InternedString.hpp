@@ -156,8 +156,21 @@ public:
 	std::string_view ToStringView() const;
 	std::string ToString() const;
 	bool IsNULL() const;
+	uint32_t Value() const;
 private:
 	inline static const uint32_t MakeInterned(const std::string_view& string);
 public:
 	static void Initialize();
 };
+
+namespace std
+{
+	template<>
+	struct hash<InternedString>
+	{
+		std::size_t operator()(InternedString const& internedString) const noexcept
+		{
+			return internedString.Value();
+		}
+	};
+}

@@ -80,6 +80,11 @@ bool InternedString::IsNULL() const
 	return (_empty2_isUsed1_StringEntryHandle29 & _empty2_isUsed1_StringEntryHandle29) == 0u;
 }
 
+uint32_t InternedString::Value() const
+{
+	return _empty2_isUsed1_StringEntryHandle29;
+}
+
 inline const uint32_t InternedString::MakeInterned(const std::string_view& string)
 {
 	if (string.size() > MAX_STRING_SIZE) std::cerr << "Interned string can only hold a string with a length less than 1024." << std::endl;
