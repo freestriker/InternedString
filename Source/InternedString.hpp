@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <string_view>
 #include <array>
+#include <mutex>
 
 class InternedString final
 {
@@ -28,6 +29,7 @@ public:
 		uint16_t empty3_memoryBlockIndex13;
 		uint16_t memoryBlockAlignedOffset16;
 	public:
+		inline StringEntryHandle();
 		inline StringEntryHandle(uint32_t stringEntryHandleValue);
 		inline StringEntryHandle(uint16_t memoryBlockIndex, uint16_t memoryBlockAlignedOffset);
 		inline const uint16_t GetMemoryBlockIndex() const;
@@ -112,6 +114,7 @@ private:
 		uint32_t capcity;
 		uint32_t size;
 		Slot* slotArray;
+		std::mutex mutex;
 	public:
 		inline Slot& FindUnusedOrTargetSlot(const HashInfo& hashInfo);
 		inline Slot& FindUnusedSlot(const HashInfo& hashInfo);
@@ -126,6 +129,7 @@ private:
 		uint16_t currentMemoryBlockIndex;
 		uint16_t currentMemoryBlockAlignedCursor;
 		char* memoryBlockArray[MAX_MEMORY_BLOCK_ARRAY_SIZE];
+		std::mutex mutex;
 	public:
 		inline StringEntry* GetStringEntry(const StringEntryHandle& stringEntryHandle) const;
 		inline const StringEntryHandle AllocateStringEntry(const StringEntryHeader& stringEntryHeader, const char* data);
@@ -144,14 +148,14 @@ public:
 	InternedString(InternedString&& internedString);
 	void operator=(InternedString&& internedString);
 	~InternedString() = default;
-	inline bool operator==(const InternedString& r) const;
-	inline bool operator!=(const InternedString& r) const;
-	inline bool operator<(const InternedString& r) const;
-	inline bool operator>(const InternedString& r) const;
+	bool operator==(const InternedString& r) const;
+	bool operator!=(const InternedString& r) const;
+	bool operator<(const InternedString& r) const;
+	bool operator>(const InternedString& r) const;
 	uint16_t Size() const;
 	std::string_view ToStringView() const;
 	std::string ToString() const;
-	inline bool IsNULL() const;
+	bool IsNULL() const;
 private:
 	inline static const uint32_t MakeInterned(const std::string_view& string);
 public:

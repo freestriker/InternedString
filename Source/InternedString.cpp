@@ -37,22 +37,22 @@ void InternedString::operator=(InternedString&& internedString)
 	_empty2_isUsed1_StringEntryHandle29 = std::move(internedString._empty2_isUsed1_StringEntryHandle29);
 }
 
-inline bool InternedString::operator==(const InternedString& r) const
+bool InternedString::operator==(const InternedString& r) const
 {
 	return _empty2_isUsed1_StringEntryHandle29 == r._empty2_isUsed1_StringEntryHandle29;
 }
 
-inline bool InternedString::operator!=(const InternedString& r) const
+bool InternedString::operator!=(const InternedString& r) const
 {
 	return _empty2_isUsed1_StringEntryHandle29 != r._empty2_isUsed1_StringEntryHandle29;
 }
 
-inline bool InternedString::operator<(const InternedString& r) const
+bool InternedString::operator<(const InternedString& r) const
 {
 	return _empty2_isUsed1_StringEntryHandle29 < r._empty2_isUsed1_StringEntryHandle29;
 }
 
-inline bool InternedString::operator>(const InternedString& r) const
+bool InternedString::operator>(const InternedString& r) const
 {
 	return _empty2_isUsed1_StringEntryHandle29 > r._empty2_isUsed1_StringEntryHandle29;
 }
@@ -75,7 +75,7 @@ std::string InternedString::ToString() const
 	return std::string(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
 }
 
-inline bool InternedString::IsNULL() const
+bool InternedString::IsNULL() const
 {
 	return (_empty2_isUsed1_StringEntryHandle29 & _empty2_isUsed1_StringEntryHandle29) == 0u;
 }
@@ -88,18 +88,25 @@ inline const uint32_t InternedString::MakeInterned(const std::string_view& strin
 
 	auto& slotPool = slotPoolArray[hashInfo.GetSlotPoolIndex()];
 
-	slotPool.CheckUsageRateAndResize();
-
-	InternedString::Slot& slot = slotPool.FindUnusedOrTargetSlot(hashInfo);
-
-	if (!slot.IsUsed())
+	uint32_t slotValue = 0u;
 	{
-		slotPoolArray[hashInfo.GetSlotPoolIndex()].size++;
-		const StringEntryHandle&& stringEntryHandle = stringEntryMemoryManager.AllocateStringEntry(hashInfo.GetStringEntryHeader(), hashInfo.GetData());
-		slot.Load(hashInfo.GetSlotHashProbe(), stringEntryHandle);
+		std::unique_lock<std::mutex> lock(slotPool.mutex);
+
+		slotPool.CheckUsageRateAndResize();
+
+		InternedString::Slot& slot = slotPool.FindUnusedOrTargetSlot(hashInfo);
+
+		if (!slot.IsUsed())
+		{
+			slotPoolArray[hashInfo.GetSlotPoolIndex()].size++;
+			const StringEntryHandle&& stringEntryHandle = stringEntryMemoryManager.AllocateStringEntry(hashInfo.GetStringEntryHeader(), hashInfo.GetData());
+			slot.Load(hashInfo.GetSlotHashProbe(), stringEntryHandle);
+		}
+
+		slotValue = slot.GetSlotValue();
 	}
 
-	return slot.GetSlotValue() & (IS_USED_MASK | STRING_ENTRY_HANDLE_MASK);
+	return slotValue & (IS_USED_MASK | STRING_ENTRY_HANDLE_MASK);
 }
 
 void InternedString::Initialize()
@@ -263,6 +270,12 @@ inline const uint8_t InternedString::HashInfo::GetSlotPoolIndex() const
 	return SLOT_POOL_INDEX_MASK & slotHashProbe3_empty21_slotPoolIndex8;
 }
 
+inline InternedString::StringEntryHandle::StringEntryHandle()
+	: empty3_memoryBlockIndex13(0u)
+	, memoryBlockAlignedOffset16(0u)
+{
+}
+
 inline InternedString::StringEntryHandle::StringEntryHandle(uint32_t stringEntryHandleValue)
 	: StringEntryHandle(static_cast<uint16_t>(stringEntryHandleValue >> 16) & MEMORY_BLOCK_INDEX_MASK, static_cast<uint16_t>(stringEntryHandleValue))
 {
@@ -298,13 +311,19 @@ inline const InternedString::StringEntryHandle InternedString::StringEntryMemory
 {
 	const uint32_t size = Align(sizeof(StringEntryHeader) + stringEntryHeader.GetSize(), ALIGN_BYTES);
 	const uint32_t alignedSize = size >> 1;
-	if (((static_cast<uint32_t>(currentMemoryBlockAlignedCursor) + alignedSize) << 1) >= MAX_MEMORY_BLOCK_SIZE)
-	{
-		CreateNewMemoryBlock();
-	}
 
-	StringEntryHandle stringEntryHandle(currentMemoryBlockIndex, currentMemoryBlockAlignedCursor);
-	currentMemoryBlockAlignedCursor += alignedSize;
+	StringEntryHandle stringEntryHandle{};
+	{
+		std::unique_lock<std::mutex> lock(mutex);
+
+		if (((static_cast<uint32_t>(currentMemoryBlockAlignedCursor) + alignedSize) << 1) >= MAX_MEMORY_BLOCK_SIZE)
+		{
+			CreateNewMemoryBlock();
+		}
+
+		stringEntryHandle = StringEntryHandle(currentMemoryBlockIndex, currentMemoryBlockAlignedCursor);
+		currentMemoryBlockAlignedCursor += alignedSize;
+	}
 
 	StringEntry* stringEntry = GetStringEntry(stringEntryHandle);
 	stringEntry->SetStringEntryHeader(stringEntryHeader);
