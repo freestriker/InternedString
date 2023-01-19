@@ -13,6 +13,14 @@ Under msvc x64 release, we tested construction, copy, map construction, map look
 | std::string | 0.036984s | 0.000476s |  0.004711s | 0.004573s | 0.002412s | 0.001065s |
 | InternedString | 0.031286s | 1.3e-05s |  0.001655s | 0.001151s | 0.001087s | 0.000144s |
 
+## 注意事项 Cautions
+* 最大字符串长度为1023
+* 每个在池中存储的字符串会有额外存储一个2字节的头
+* 字符串池的最大空间为1GiB
+* Maximum string length is 1023
+* Each string stored in the pool will have an additional 2-byte header stored
+* The maximum space of the string pool is 1GiB
+
 ## 算法思路 Algorithm ideas
 见<https://zhuanlan.zhihu.com/p/599751716>。  
 see<https://zhuanlan.zhihu.com/p/599751716>.
