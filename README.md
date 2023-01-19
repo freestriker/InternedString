@@ -6,7 +6,7 @@ InternedString是一个轻量级的字符串可重用系统，原理与虚幻引
 InternedString is a lightweight string reusability system, based on the same principle as FName in Unreal Engine, with some simplifications and modifications. Each string in the system is only stored once in the pool, and only the keys used to access it are stored internally, so the copy and comparison burden is minimal. When accessing a string, the key is used to find the access in the string pool.
 
 ## 性能比较 Performance Comparison
-在msvc x64 release下，使用随机生成的长度从6~25的总共15200个字符进行构造、拷贝、map构造、map查找、unordered_map构造、unordered_map查找进行测试。结果显示构造略微快一点，拷贝提升巨大，map查找的提升大概在3~4倍左右，unordered_map查找的提升大概在7倍左右。  
+在msvc x64 release下，使用随机生成的长度从6到25的总共15200个字符进行构造、拷贝、map构造、map查找、unordered_map构造、unordered_map查找进行测试。结果显示构造略微快一点，拷贝提升巨大，map查找的提升大概在3到4倍左右，unordered_map查找的提升大概在7倍左右。  
 Under msvc x64 release, we tested construction, copy, map construction, map lookup, unordered_map construction, and unordered_map lookup using a total of 15,200 randomly generated characters of length 6 to 25. The results show that the construction is slightly faster, the copy improvement is huge, the map lookup improvement is about 3~4 times, and the unordered_map lookup improvement is about 7 times.  
 |  | construction | copy |  map construction | map lookup | unordered_map construction | unordered_map lookup |
 | ------ | ------ | ------ | ------ | ------ | ------ | ------ |
