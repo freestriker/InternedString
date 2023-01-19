@@ -36,6 +36,24 @@ std::string GetRandomString(uint32_t size)
 
 int main(int argc, char* argv[])
 {
+    InternedString::Initialize();
+
+    {
+        std::string stdString = "stdString";
+        std::string_view stdStringView = "stdStringView";
+        const char* constCharPtr = "constCharPtr";
+
+        InternedString is0 = InternedString(stdString);
+        InternedString is1 = InternedString(stdStringView);
+        InternedString is2 = InternedString(constCharPtr);
+
+        bool isNull = is0.IsNULL();
+        auto size = is0.Size();
+        bool same = is0 == is1;
+        bool less = is0 < is1;
+        auto hash = std::hash<InternedString>()(is0);
+    }
+
     std::cout << "The test was performed using " << (MAX_STRING_SIZE - MIN_STRING_SIZE) * PER_SIZE_STRING_COUNT << " randomly generated strings ranging in length from " << MIN_STRING_SIZE << " to " << MAX_STRING_SIZE << "." << std::endl;
 
     std::cout << "-----std::string-----" << std::endl;
@@ -191,8 +209,6 @@ int main(int argc, char* argv[])
     std::cout << "-----interned string-----" << std::endl;
     ///Interned string
     {
-        InternedString::Initialize();
-
         std::array<InternedString, PER_SIZE_STRING_COUNT* (MAX_STRING_SIZE - MIN_STRING_SIZE + 1)> internedStringArray{};
         
         std::cout << "-----build-----" << std::endl;
