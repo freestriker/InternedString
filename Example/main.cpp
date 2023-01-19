@@ -83,6 +83,27 @@ int main(int argc, char* argv[])
                 << std::endl;
         }
 
+        std::cout << "-----copy-----" << std::endl;
+        ///Copy
+        {
+            auto sharedPtr = std::shared_ptr< std::array<std::string, PER_SIZE_STRING_COUNT* (MAX_STRING_SIZE - MIN_STRING_SIZE + 1)>>(new std::array<std::string, PER_SIZE_STRING_COUNT* (MAX_STRING_SIZE - MIN_STRING_SIZE + 1)>());
+            auto& testArray = *sharedPtr;
+
+            auto start = std::chrono::high_resolution_clock::now();
+
+            for (uint32_t index = 0; index < testArray.size(); index++)
+            {
+                testArray[index] = stdStringArray[index];
+            }
+
+            auto end = std::chrono::high_resolution_clock::now();
+            std::cout
+                << "Use "
+                << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                << "s to copy a std string array."
+                << std::endl;
+        }
+
         std::cout << "-----map-----" << std::endl;
         ///Map
         {
@@ -230,6 +251,27 @@ int main(int argc, char* argv[])
                 << "Use "
                 << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
                 << "s to create a interned string array."
+                << std::endl;
+        }
+
+        std::cout << "-----copy-----" << std::endl;
+        ///Copy
+        {
+            auto sharedPtr = std::shared_ptr< std::array<InternedString, PER_SIZE_STRING_COUNT* (MAX_STRING_SIZE - MIN_STRING_SIZE + 1)>>(new std::array<InternedString, PER_SIZE_STRING_COUNT* (MAX_STRING_SIZE - MIN_STRING_SIZE + 1)>());
+            auto& testArray = *sharedPtr;
+
+            auto start = std::chrono::high_resolution_clock::now();
+
+            for (uint32_t index = 0; index < testArray.size(); index++)
+            {
+                testArray[index] = internedStringArray[index];
+            }
+
+            auto end = std::chrono::high_resolution_clock::now();
+            std::cout
+                << "Use "
+                << double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+                << "s to copy a interned string array."
                 << std::endl;
         }
 
