@@ -6,12 +6,13 @@
 
 class InternedString final
 {
-public:
+private:
 	static constexpr uint32_t IS_USED_MASK = 1u << 29u;
 	static constexpr uint32_t STRING_ENTRY_HANDLE_BITS = 29u;
 	static constexpr uint32_t STRING_ENTRY_HANDLE_MASK = (1u << 29u) - 1u;
 	static constexpr uint32_t MAX_STRING_SIZE = 1023u;
-	static constexpr double SLOT_POOL_RESIZE_USAGE_RATE = 0.9;
+	static constexpr uint32_t MAX_SLOT_POOL_ARRAY_SIZE = 256u;
+	static constexpr uint32_t MAX_MEMORY_BLOCK_ARRAY_SIZE = 8192u;
 
 	struct Slot;
 	struct SlotPool;
@@ -80,11 +81,6 @@ public:
 		inline const uint32_t GetSlotIndex() const;
 		inline const uint8_t GetSlotPoolIndex() const;
 	};
-private:
-	static constexpr uint32_t MAX_SLOT_POOL_ARRAY_SIZE = 256u;
-	static constexpr uint32_t MAX_MEMORY_BLOCK_ARRAY_SIZE = 8192u;
-	static constexpr uint32_t SLOT_POOL_INITIALIZE_SIZE = 256u;
-	static constexpr uint32_t MAX_MEMORY_BLOCK_SIZE = (1u << 16u) * 2u;
 	struct Slot
 	{
 		static constexpr uint32_t SLOT_HASH_PROBE_BITS = 3u;
@@ -110,6 +106,8 @@ private:
 	struct SlotPool
 	{
 		friend class InternedString;
+		static constexpr double SLOT_POOL_RESIZE_USAGE_RATE = 0.9;
+		static constexpr uint32_t SLOT_POOL_INITIALIZE_SIZE = 256u;
 	private:
 		uint32_t capcity;
 		uint32_t size;
@@ -123,8 +121,9 @@ private:
 	};
 	struct StringEntryMemoryManager
 	{
-		static constexpr uint32_t ALIGN_BYTES = 2u;
 		friend class InternedString;
+		static constexpr uint32_t ALIGN_BYTES = 2u;
+		static constexpr uint32_t MAX_MEMORY_BLOCK_SIZE = (1u << 16u) * 2u;
 	private:
 		uint16_t currentMemoryBlockIndex;
 		uint16_t currentMemoryBlockAlignedCursor;
@@ -141,24 +140,65 @@ private:
 private:
 	uint32_t _empty2_isUsed1_StringEntryHandle29;
 public:
-	InternedString();
-	InternedString(const std::string_view& string);
-	InternedString(const InternedString& internedString);
-	void operator=(const InternedString& internedString);
-	InternedString(InternedString&& internedString);
-	void operator=(InternedString&& internedString);
+	inline InternedString()
+		: _empty2_isUsed1_StringEntryHandle29(0u)
+	{
+	}
 	~InternedString() = default;
-	bool operator==(const InternedString& r) const;
-	bool operator!=(const InternedString& r) const;
-	bool operator<(const InternedString& r) const;
-	bool operator>(const InternedString& r) const;
-	uint16_t Size() const;
+	inline InternedString(const std::string_view& string)
+		: _empty2_isUsed1_StringEntryHandle29(MakeInterned(string))
+	{
+	}
+	inline InternedString(const InternedString& internedString)
+		: _empty2_isUsed1_StringEntryHandle29(internedString._empty2_isUsed1_StringEntryHandle29)
+	{
+	}
+	inline void operator=(const InternedString& internedString)
+	{
+		_empty2_isUsed1_StringEntryHandle29 = internedString._empty2_isUsed1_StringEntryHandle29;
+	}
+	inline InternedString(InternedString&& internedString) noexcept
+		: _empty2_isUsed1_StringEntryHandle29(std::move(internedString._empty2_isUsed1_StringEntryHandle29))
+	{
+	}
+	inline void operator=(InternedString&& internedString) noexcept
+	{
+		_empty2_isUsed1_StringEntryHandle29 = std::move(internedString._empty2_isUsed1_StringEntryHandle29);
+	}
+	inline bool operator==(const InternedString& r) const
+	{
+		return _empty2_isUsed1_StringEntryHandle29 == r._empty2_isUsed1_StringEntryHandle29;
+	}
+	inline bool operator!=(const InternedString& r) const
+	{
+		return _empty2_isUsed1_StringEntryHandle29 != r._empty2_isUsed1_StringEntryHandle29;
+	}
+	inline bool operator<(const InternedString& r) const
+	{
+		return _empty2_isUsed1_StringEntryHandle29 < r._empty2_isUsed1_StringEntryHandle29;
+	}
+	inline bool operator>(const InternedString& r) const
+	{
+		return _empty2_isUsed1_StringEntryHandle29 > r._empty2_isUsed1_StringEntryHandle29;
+	}
+
+	inline uint16_t Size() const
+	{
+		const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
+		return stringEntry->GetStringEntryHeader().GetSize();
+	}
 	std::string_view ToStringView() const;
 	std::string ToString() const;
-	bool IsNULL() const;
-	uint32_t Value() const;
+	inline bool IsNULL() const
+	{
+		return (_empty2_isUsed1_StringEntryHandle29 & _empty2_isUsed1_StringEntryHandle29) == 0u;
+	}
+	inline uint32_t Value() const
+	{
+		return _empty2_isUsed1_StringEntryHandle29;
+	}
 private:
-	inline static const uint32_t MakeInterned(const std::string_view& string);
+	static const uint32_t MakeInterned(const std::string_view& string);
 public:
 	static void Initialize();
 };

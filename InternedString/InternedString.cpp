@@ -7,62 +7,6 @@
 std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE> InternedString::slotPoolArray = std::array<InternedString::SlotPool, InternedString::MAX_SLOT_POOL_ARRAY_SIZE>();
 InternedString::StringEntryMemoryManager InternedString::stringEntryMemoryManager = InternedString::StringEntryMemoryManager();
 
-InternedString::InternedString()
-	: _empty2_isUsed1_StringEntryHandle29(0u)
-{
-}
-
-InternedString::InternedString(const std::string_view& string)
-	: _empty2_isUsed1_StringEntryHandle29(MakeInterned(string))
-{
-}
-
-InternedString::InternedString(const InternedString& internedString)
-	: _empty2_isUsed1_StringEntryHandle29(internedString._empty2_isUsed1_StringEntryHandle29)
-{
-}
-
-void InternedString::operator=(const InternedString& internedString)
-{
-	_empty2_isUsed1_StringEntryHandle29 = internedString._empty2_isUsed1_StringEntryHandle29;
-}
-
-InternedString::InternedString(InternedString&& internedString)
-	: _empty2_isUsed1_StringEntryHandle29(std::move(internedString._empty2_isUsed1_StringEntryHandle29))
-{
-}
-
-void InternedString::operator=(InternedString&& internedString)
-{
-	_empty2_isUsed1_StringEntryHandle29 = std::move(internedString._empty2_isUsed1_StringEntryHandle29);
-}
-
-bool InternedString::operator==(const InternedString& r) const
-{
-	return _empty2_isUsed1_StringEntryHandle29 == r._empty2_isUsed1_StringEntryHandle29;
-}
-
-bool InternedString::operator!=(const InternedString& r) const
-{
-	return _empty2_isUsed1_StringEntryHandle29 != r._empty2_isUsed1_StringEntryHandle29;
-}
-
-bool InternedString::operator<(const InternedString& r) const
-{
-	return _empty2_isUsed1_StringEntryHandle29 < r._empty2_isUsed1_StringEntryHandle29;
-}
-
-bool InternedString::operator>(const InternedString& r) const
-{
-	return _empty2_isUsed1_StringEntryHandle29 > r._empty2_isUsed1_StringEntryHandle29;
-}
-
-uint16_t InternedString::Size() const
-{
-	const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
-	return stringEntry->GetStringEntryHeader().GetSize();
-}
-
 std::string_view InternedString::ToStringView() const
 {
 	const StringEntry* stringEntry = stringEntryMemoryManager.GetStringEntry(StringEntryHandle(_empty2_isUsed1_StringEntryHandle29));
@@ -75,17 +19,7 @@ std::string InternedString::ToString() const
 	return std::string(stringEntry->GetData(), stringEntry->GetStringEntryHeader().GetSize());
 }
 
-bool InternedString::IsNULL() const
-{
-	return (_empty2_isUsed1_StringEntryHandle29 & _empty2_isUsed1_StringEntryHandle29) == 0u;
-}
-
-uint32_t InternedString::Value() const
-{
-	return _empty2_isUsed1_StringEntryHandle29;
-}
-
-inline const uint32_t InternedString::MakeInterned(const std::string_view& string)
+const uint32_t InternedString::MakeInterned(const std::string_view& string)
 {
 	if (string.size() > MAX_STRING_SIZE) std::cerr << "Interned string can only hold a string with a length less than 1024." << std::endl;
 
@@ -119,15 +53,15 @@ void InternedString::Initialize()
 	for (auto& slotPool : slotPoolArray)
 	{
 		slotPool.size = 0;
-		slotPool.capcity = SLOT_POOL_INITIALIZE_SIZE;
-		slotPool.slotArray = reinterpret_cast<Slot*>(std::malloc(SLOT_POOL_INITIALIZE_SIZE * sizeof(Slot)));
-		std::memset(slotPool.slotArray, 0, SLOT_POOL_INITIALIZE_SIZE);
+		slotPool.capcity = SlotPool::SLOT_POOL_INITIALIZE_SIZE;
+		slotPool.slotArray = reinterpret_cast<Slot*>(std::malloc(SlotPool::SLOT_POOL_INITIALIZE_SIZE * sizeof(Slot)));
+		std::memset(slotPool.slotArray, 0, SlotPool::SLOT_POOL_INITIALIZE_SIZE);
 	}
 
 	stringEntryMemoryManager.currentMemoryBlockIndex = 0;
 	stringEntryMemoryManager.currentMemoryBlockAlignedCursor = 0;
-	stringEntryMemoryManager.memoryBlockArray[0] = reinterpret_cast<char*>(std::malloc(MAX_MEMORY_BLOCK_SIZE));
-	std::memset(stringEntryMemoryManager.memoryBlockArray[0], 0, MAX_MEMORY_BLOCK_SIZE);
+	stringEntryMemoryManager.memoryBlockArray[0] = reinterpret_cast<char*>(std::malloc(StringEntryMemoryManager::MAX_MEMORY_BLOCK_SIZE));
+	std::memset(stringEntryMemoryManager.memoryBlockArray[0], 0, StringEntryMemoryManager::MAX_MEMORY_BLOCK_SIZE);
 }
 
 inline InternedString::Slot& InternedString::SlotPool::FindUnusedOrTargetSlot(const HashInfo& hashInfo)
